@@ -86,7 +86,7 @@ public class JWT {
 
 			if (jwsObject.verify(verifier)) {
 				// read valid-until and check
-				JSONObject payload = jwsObject.getPayload().toJSONObject();
+				JSONObject payload = (JSONObject) jwsObject.getPayload().toJSONObject();
 
 				payload.put("request-token", token);
 				

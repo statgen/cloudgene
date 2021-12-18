@@ -29,7 +29,7 @@ public class ApiTokenVerifier {
 
 			if (jwsObject.verify(verifier)) {
 				// read valid-until and check
-				net.minidev.json.JSONObject payload = jwsObject.getPayload().toJSONObject();
+				net.minidev.json.JSONObject payload = (net.minidev.json.JSONObject) jwsObject.getPayload().toJSONObject();
 
 				User user = getUser(database, payload);
 				if (user == null) {
