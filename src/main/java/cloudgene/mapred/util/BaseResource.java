@@ -1,9 +1,9 @@
 package cloudgene.mapred.util;
 
-
 import java.net.URLDecoder;
 import java.util.Map;
 
+import org.apache.commons.lang.StringEscapeUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.restlet.data.Status;
@@ -25,14 +25,16 @@ public class BaseResource extends ServerResource {
 	private WebApp application;
 
 	private Database database;
+	
+	private boolean accessedByApi = false;
 		
 	@Override
 	protected void doInit() throws ResourceException {
 		super.doInit();
 
 		application = (WebApp) getApplication();
-		database = application.getDatabase();	
-		
+		database = application.getDatabase();
+
 	}
 
 	public Database getDatabase() {
@@ -46,16 +48,26 @@ public class BaseResource extends ServerResource {
 	public User getAuthUser() {
 		return getAuthUser(true);
 	}
-		
+
 	public User getAuthUser(boolean checkCsrf) {
+		return JWTUtil.getUserByRequest(getDatabase(), getRequest(), getSettings().getSecretKey(), checkCsrf);
+	}
 
+	public User getAuthUserAndAllowApiToken() {
+		return 	getAuthUserAndAllowApiToken(true);
+	}
+	
+	public User getAuthUserAndAllowApiToken(boolean checkCsrf) {
 		User user = JWTUtil.getUserByRequest(getDatabase(), getRequest(), getSettings().getSecretKey(), checkCsrf);
-		if (user != null) {
-			return user;
-		} else {
-			return null;
+		if (user == null) {
+			user = JWTUtil.getUserByApiToken(getDatabase(), getRequest(), getSettings().getSecretKey());
+			accessedByApi = true;
 		}
-
+		return user;
+	}
+	
+	public boolean isAccessedByApi() {
+		return accessedByApi;
 	}
 
 	public Settings getSettings() {
@@ -65,29 +77,28 @@ public class BaseResource extends ServerResource {
 	public ApplicationRepository getApplicationRepository() {
 		return application.getSettings().getApplicationRepository();
 	}
-	
+
 	public WorkflowEngine getWorkflowEngine() {
 		return application.getWorkflowEngine();
 	}
-	
+
 	@Override
 	public String getAttribute(String name) {
-		//encode automatically
+		// encode automatically
 		String value = super.getAttribute(name);
 		if (value != null) {
 			return URLDecoder.decode(value);
-		}else{
+		} else {
 			return null;
 		}
 	}
-	
-	
+
 	@Override
-	public String getQueryValue(String name) { 
+	public String getQueryValue(String name) {
 		String value = super.getQueryValue(name);
-		if (value != null){
+		if (value != null) {
 			return URLDecoder.decode(value);
-		}else{
+		} else {
 			return null;
 		}
 	}
@@ -101,7 +112,7 @@ public class BaseResource extends ServerResource {
 		try {
 
 			jsonObject.put("success", false);
-			jsonObject.put("message", message);
+			jsonObject.put("message", StringEscapeUtils.escapeHtml(message));
 
 		} catch (JSONException e) {
 
@@ -109,7 +120,7 @@ public class BaseResource extends ServerResource {
 			return new EmptyRepresentation();
 
 		}
-		
+
 		return new JsonRepresentation(jsonObject);
 
 	}
@@ -123,7 +134,7 @@ public class BaseResource extends ServerResource {
 		try {
 
 			jsonObject.put("success", true);
-			jsonObject.put("message", message);
+			jsonObject.put("message", StringEscapeUtils.escapeHtml(message));
 
 		} catch (JSONException e) {
 
@@ -137,7 +148,7 @@ public class BaseResource extends ServerResource {
 
 	public Representation ok(String message, Map<String, Object> params) {
 
-		setStatus(Status.SUCCESS_OK, message);
+		setStatus(Status.SUCCESS_OK, StringEscapeUtils.escapeHtml(message));
 
 		JSONObject jsonObject = new JSONObject();
 
@@ -175,4 +186,9 @@ public class BaseResource extends ServerResource {
 		return error(Status.CLIENT_ERROR_BAD_REQUEST, message);
 	}
 
+	public Representation error503(String message) {
+		return error(Status.SERVER_ERROR_SERVICE_UNAVAILABLE, message);
+	}
+
+	
 }
