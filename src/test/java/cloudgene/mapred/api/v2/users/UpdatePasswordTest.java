@@ -1,29 +1,44 @@
 package cloudgene.mapred.api.v2.users;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.io.IOException;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.restlet.data.Form;
 import org.restlet.resource.ClientResource;
+import org.restlet.resource.ResourceException;
 
+import cloudgene.mapred.TestApplication;
 import cloudgene.mapred.core.User;
 import cloudgene.mapred.database.UserDao;
+import cloudgene.mapred.util.CloudgeneClient;
 import cloudgene.mapred.util.HashUtil;
-import cloudgene.mapred.util.JobsApiTestCase;
 import cloudgene.mapred.util.TestMailServer;
-import cloudgene.mapred.util.TestServer;
 import genepi.db.Database;
+import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import jakarta.inject.Inject;
 
-public class UpdatePasswordTest extends JobsApiTestCase {
+@MicronautTest
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class UpdatePasswordTest {
 
-	@Override
+	@Inject
+	TestApplication application;
+
+	@Inject
+	CloudgeneClient client;
+
+	@BeforeAll
 	protected void setUp() throws Exception {
-		TestServer.getInstance().start();
 		TestMailServer.getInstance().start();
 
 		// insert two dummy users
-		Database database = TestServer.getInstance().getDatabase();
+		Database database = application.getDatabase();
 		UserDao userDao = new UserDao(database);
 
 		User testUser1 = new User();
@@ -58,10 +73,11 @@ public class UpdatePasswordTest extends JobsApiTestCase {
 
 	}
 
+	@Test
 	public void testWithCorrectActivationCode() throws JSONException, IOException {
 
 		// try to update invalid password
-		ClientResource resource = createClientResource("/api/v2/users/update-password");
+		ClientResource resource = client.createClientResource("/api/v2/users/update-password");
 		Form form = new Form();
 		form.set("token", "ACTIVATION-CODE-FROM-MAIL-3");
 		form.set("username", "testupdate3");
@@ -76,7 +92,7 @@ public class UpdatePasswordTest extends JobsApiTestCase {
 		resource.release();
 
 		// try to update password
-		resource = createClientResource("/api/v2/users/update-password");
+		resource = client.createClientResource("/api/v2/users/update-password");
 		form = new Form();
 		form.set("token", "ACTIVATION-CODE-FROM-MAIL-3");
 		form.set("username", "testupdate3");
@@ -91,38 +107,42 @@ public class UpdatePasswordTest extends JobsApiTestCase {
 		resource.release();
 
 		// try login with old password
-		resource = createClientResource("/login");
+		resource = client.createClientResource("/login");
 		form = new Form();
-		form.set("loginUsername", "testupdate3");
-		form.set("loginPassword", "old-password");
-		resource.post(form);
-
-		assertEquals(200, resource.getStatus().getCode());
+		form.set("username", "testupdate3");
+		form.set("password", "old-password");
+		
+		try {
+			resource.post(form);
+		} catch (ResourceException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		assertEquals(401, resource.getStatus().getCode());
 		object = new JSONObject(resource.getResponseEntity().getText());
 		assertEquals("Login Failed! Wrong Username or Password.", object.getString("message"));
-		assertEquals(false, object.get("success"));
-		assertEquals(0, resource.getResponse().getCookieSettings().size());
 		resource.release();
 
 		// try login with new password
-		resource = createClientResource("/login");
+		resource = client.createClientResource("/login");
 		form = new Form();
-		form.set("loginUsername", "testupdate3");
-		form.set("loginPassword", "New-password9");
+		form.set("username", "testupdate3");
+		form.set("password", "New-password9");
 		resource.post(form);
-
+		
 		assertEquals(200, resource.getStatus().getCode());
+		
 		object = new JSONObject(resource.getResponseEntity().getText());
-		assertEquals("Login successfull.", object.getString("message"));
-		assertEquals(true, object.get("success"));
-		assertEquals(1, resource.getResponse().getCookieSettings().size());
+		assertEquals("testupdate3", object.get("username"));
 		resource.release();
 	}
 
+	@Test
 	public void testWithWrongActivationCode() throws JSONException, IOException {
 
 		// try to update password for test2
-		ClientResource resource = createClientResource("/api/v2/users/update-password");
+		ClientResource resource = client.createClientResource("/api/v2/users/update-password");
 		Form form = new Form();
 		form.set("token", "WRONG TOKEN");
 		form.set("username", "testupdate");
@@ -137,10 +157,11 @@ public class UpdatePasswordTest extends JobsApiTestCase {
 
 	}
 
+	@Test
 	public void testWithEmptyUsername() throws JSONException, IOException {
 
 		// try to update password for test2
-		ClientResource resource = createClientResource("/api/v2/users/update-password");
+		ClientResource resource = client.createClientResource("/api/v2/users/update-password");
 		Form form = new Form();
 		form.set("token", "ACTIVATION-CODE-FROM-MAIL");
 		form.set("new-password", "Password27");
@@ -153,10 +174,11 @@ public class UpdatePasswordTest extends JobsApiTestCase {
 		assertEquals("No username set.", object.get("message").toString());
 	}
 
+	@Test
 	public void testWithWrongUsername() throws JSONException, IOException {
 
 		// try to update password for test2
-		ClientResource resource = createClientResource("/api/v2/users/update-password");
+		ClientResource resource = client.createClientResource("/api/v2/users/update-password");
 		Form form = new Form();
 		form.set("token", "ACTIVATION-CODE-FROM-MAIL");
 		form.set("username", "wrong-username");
@@ -167,13 +189,14 @@ public class UpdatePasswordTest extends JobsApiTestCase {
 		assertEquals(200, resource.getStatus().getCode());
 		JSONObject object = new JSONObject(resource.getResponseEntity().getText());
 		assertEquals(object.get("success"), false);
-		assertEquals("We couldn't find an account with that username.", object.get("message").toString());
+		assertEquals("We couldn't find an account with that username or email.", object.get("message").toString());
 	}
 
+	@Test
 	public void testWithInActiveUser() throws JSONException, IOException {
 
 		// try to update password for test2
-		ClientResource resource = createClientResource("/api/v2/users/update-password");
+		ClientResource resource = client.createClientResource("/api/v2/users/update-password");
 		Form form = new Form();
 		form.set("token", "ACTIVATION-CODE-FROM-MAIL");
 		form.set("username", "testupdate2");

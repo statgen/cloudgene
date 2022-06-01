@@ -1,21 +1,37 @@
 package cloudgene.mapred.api.v2.jobs;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.json.JSONObject;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.restlet.ext.html.FormDataSet;
 
+import cloudgene.mapred.TestApplication;
 import cloudgene.mapred.jobs.AbstractJob;
-import cloudgene.mapred.util.JobsApiTestCase;
+import cloudgene.mapred.util.CloudgeneClient;
 import cloudgene.mapred.util.TestCluster;
-import cloudgene.mapred.util.TestServer;
+import io.micronaut.runtime.Micronaut;
+import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import jakarta.inject.Inject;
 
-public class RestartJobTest extends JobsApiTestCase {
+@MicronautTest
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class RestartJobTest {
 
-	@Override
+	@Inject
+	TestApplication application;
+
+	@Inject
+	CloudgeneClient client;
+
+	@BeforeAll
 	protected void setUp() throws Exception {
-		TestServer.getInstance().start();
 		TestCluster.getInstance().start();
 	}
 
+	@Test
 	public void testRestartWriteTextToFileJob() throws Exception {
 
 		// form data
@@ -25,44 +41,43 @@ public class RestartJobTest extends JobsApiTestCase {
 		form.add("input-inputtext", "lukas_text");
 
 		// submit job
-		String id = submitJobPublic("write-text-to-file", form);
+		String id = client.submitJobPublic("write-text-to-file", form);
 
 		Thread.sleep(5);
 
 		// stop engine
-		TestServer.getInstance().reStartWebServer();
+		// TODO: how to restart micronaut application?
+		// TestServer.getInstance().reStartWebServer();
 
 		// get details
-		JSONObject result = getJobDetails(id);
+		JSONObject result = client.getJobDetails(id);
 		assertEquals(AbstractJob.STATE_DEAD, result.get("state"));
 
 		// restart job
-		restartJob(id);
+		client.restartJob(id);
 
 		// check feedback
-		waitForJob(id);
+		client.waitForJob(id);
 
 		// TODO: change!
 		Thread.sleep(5000);
-		
-		// get details
-		result = getJobDetails(id);
 
-	
+		// get details
+		result = client.getJobDetails(id);
+
 		assertEquals(AbstractJob.STATE_SUCCESS, result.get("state"));
 
 		// get path and download file
-		String path = result.getJSONArray("outputParams").getJSONObject(0)
-				.getJSONArray("files").getJSONObject(0).getString("path");
+		JSONObject file = result.getJSONArray("outputParams").getJSONObject(0).getJSONArray("files").getJSONObject(0);
 
-		String content = downloadResults(path);
+		String content = client.download(id, file);
 
 		assertEquals("lukas_text", content);
 
 	}
 
-	//TODO: wrong permissions
-	
-	//TODO: wrong id
+	// TODO: wrong permissions
+
+	// TODO: wrong id
 
 }

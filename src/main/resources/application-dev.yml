@@ -1,0 +1,19 @@
+micronaut:
+  router:
+    static-resources:
+      webapp:
+        paths:
+          - file:src/main/html/webapp
+        enabled: true
+      pages:
+        enabled: true
+        mapping: "/static/**"
+        paths:
+          - file:pages
+          - file:sample/pages
+  views:
+    folder: src/main/html/webapp
+
+  autoRetireInterval: 10m
+jackson:
+  serialization-inclusion: ALWAYS

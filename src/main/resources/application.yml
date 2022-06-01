@@ -1,0 +1,59 @@
+micronaut:
+  application:
+    name: cloudgene
+  server:
+    port: 8080
+  security:
+      authentication: bearer
+      intercept-url-map:
+        - pattern : /api/**
+          access:
+            - isAuthenticated()
+        - pattern : /static/**
+          access:
+            - isAnonymous()
+        - pattern : /**
+          access:
+            - isAnonymous()
+      token:
+        jwt:
+          bearer:
+            header-name: "X-Auth-Token"
+            prefix: ""
+          generator:
+            access-token:
+              expiration: 86400
+          signatures:
+            secret:
+              generator:
+                secret: '"${JWT_GENERATOR_SIGNATURE_SECRET:pleaseChangeThisSecretForANewOne}"'
+      redirect:
+        enabled: false
+
+      endpoints:
+        login:
+           enabled: false
+        logout:
+           get-allowed: true
+
+  router:
+    static-resources:
+      webapp:
+        paths:
+          - file:webapp
+        enabled: true
+      pages:
+        enabled: true
+        mapping: "/static/**"
+        paths:
+          - file:pages
+          - file:sample/pages
+  views:
+    folder: webapp
+jackson:
+  serialization-inclusion: ALWAYS
+
+netty:
+  default:
+    allocator:
+      max-order: 3

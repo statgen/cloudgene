@@ -91,7 +91,6 @@ export default Control.extend({
     }, function(response) {
       showErrorDialog("Operation failed", response);
     });
-
   },
 
   "#retire-btn click": function() {
