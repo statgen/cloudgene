@@ -11,6 +11,7 @@ import RouterControl from 'helpers/router';
 import StaticPage from 'helpers/static-page';
 import DashboardControl from 'components/core/dashboard/';
 import UserLoginControl from 'components/core/user/login/';
+import UserLogoutControl from 'components/core/user/logout/';
 import UserSignupControl from 'components/core/user/signup/';
 import UserActivateControl from 'components/core/user/activate/';
 import UserPasswordRecoveryControl from 'components/core/user/password-recovery/';
@@ -42,6 +43,9 @@ var routes = [{
 }, {
   path: 'pages/login',
   control: UserLoginControl,
+}, {
+  path: 'pages/logout',
+  control: UserLogoutControl,
 }, {
   path: 'activate/{user}/{key}',
   control: UserActivateControl
@@ -84,8 +88,9 @@ var routes = [{
 }, {
   path: 'run/{app}',
   control: SubmitJobControl,
-  classes: 'fullsize-container'
-},{
+  classes: 'fullsize-container',
+  guard: loggedInGuard
+}, {
   path: 'pages/{page}',
   control: StaticPage
 }];
@@ -93,6 +98,34 @@ var routes = [{
 function loggedInGuard(appState) {
   return appState.attr('loggedIn');
 }
+
+$.ajaxPrefilter(function(options, orig, xhr) {
+  if (!options.beforeSend) {
+    options.beforeSend = function(xhr) {
+      if (localStorage.getItem("cloudgene")) {
+        try {
+          // get data
+          var data = JSON.parse(localStorage.getItem("cloudgene"));
+          xhr.setRequestHeader("X-CSRF-Token", data.csrf);
+          xhr.setRequestHeader("X-Auth-Token", data.token);
+        } catch (e) {
+          // do nothing
+        }
+      }
+    }
+  }
+  //canjs has an bug while sending data in json format: data is not in json format, so we need to fix it convert it manually to JSON
+  if (options.processData &&
+    /^application\/json((\+|;).+)?$/i.test(options.contentType) &&
+    /^(post|put|delete)$/i.test(options.type)
+  ) {
+    options.data = JSON.stringify(orig.data);
+    options.processData = false;
+  }
+
+});
+
+
 
 Server.findOne({}, function(server) {
 

@@ -1,28 +1,45 @@
 package cloudgene.mapred.api.v2.users;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.IOException;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.restlet.data.Form;
 import org.restlet.resource.ClientResource;
 
+import cloudgene.mapred.TestApplication;
 import cloudgene.mapred.core.User;
 import cloudgene.mapred.database.UserDao;
+import cloudgene.mapred.util.CloudgeneClient;
 import cloudgene.mapred.util.HashUtil;
-import cloudgene.mapred.util.JobsApiTestCase;
 import cloudgene.mapred.util.LoginToken;
-import cloudgene.mapred.util.TestServer;
 import genepi.db.Database;
+import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import jakarta.inject.Inject;
 
-public class UserProfileTest extends JobsApiTestCase {
+@MicronautTest
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class UserProfileTest {
 
-	@Override
+	@Inject
+	TestApplication application;
+
+	@Inject
+	CloudgeneClient client;
+
+	@BeforeAll
 	protected void setUp() throws Exception {
-		TestServer.getInstance().start();
 
 		// insert two dummy users
-		Database database = TestServer.getInstance().getDatabase();
+		Database database = application.getDatabase();
 		UserDao userDao = new UserDao(database);
 
 		User testUser1 = new User();
@@ -47,10 +64,11 @@ public class UserProfileTest extends JobsApiTestCase {
 
 	}
 
+	@Test
 	public void testGetWithWrongCredentials() throws JSONException, IOException {
 		LoginToken token = new LoginToken();
 		token.setCsrfToken("wrong-token");
-		ClientResource resource = createClientResource("/api/v2/users/test1/profile", token);
+		ClientResource resource = client.createClientResource("/api/v2/users/test1/profile", token);
 		try {
 			resource.get();
 		} catch (Exception e) {
@@ -60,11 +78,12 @@ public class UserProfileTest extends JobsApiTestCase {
 		resource.release();
 	}
 
+	@Test
 	public void testGetWithCorrectCredentials() throws JSONException, IOException {
 		// login as user test1 and get profile. username is ignored, returns
 		// allways auth user's profile. just for better urls
-		LoginToken token = login("test1", "Test1Password");
-		ClientResource resource = createClientResource("/api/v2/users/test1/profile", token);
+		LoginToken token = client.login("test1", "Test1Password");
+		ClientResource resource = client.createClientResource("/api/v2/users/test1/profile", token);
 		try {
 			resource.get();
 		} catch (Exception e) {
@@ -78,13 +97,14 @@ public class UserProfileTest extends JobsApiTestCase {
 		resource.release();
 	}
 
+	@Test
 	public void testUpdateWithCorrectCredentials() throws JSONException, IOException {
 
 		// login as user test1
-		LoginToken token = login("test2", "Test2Password");
+		LoginToken token = client.login("test2", "Test2Password");
 
 		// try to update password for test2
-		ClientResource resource = createClientResource("/api/v2/users/me/profile", token);
+		ClientResource resource = client.createClientResource("/api/v2/users/me/profile", token);
 		Form form = new Form();
 		form.set("username", "test2");
 		form.set("full-name", "new full-name");
@@ -100,41 +120,41 @@ public class UserProfileTest extends JobsApiTestCase {
 		resource.release();
 
 		// try login with old password
-		resource = createClientResource("/login");
+		resource = client.createClientResource("/login");
 		form = new Form();
-		form.set("loginUsername", "test2");
-		form.set("loginPassword", "Test2Password");
-		resource.post(form);
+		form.set("username", "test2");
+		form.set("password", "Test2Password");
+		try {
+			resource.post(form);
+		} catch (Exception e) {
+			// TODO: handle exception
+		}
 
-		assertEquals(200, resource.getStatus().getCode());
+		assertEquals(401, resource.getStatus().getCode());
 		object = new JSONObject(resource.getResponseEntity().getText());
 		assertEquals("Login Failed! Wrong Username or Password.", object.getString("message"));
-		assertEquals(false, object.get("success"));
-		assertEquals(0, resource.getResponse().getCookieSettings().size());
 		resource.release();
 
 		// try login with new password
-		resource = createClientResource("/login");
+		resource = client.createClientResource("/login");
 		form = new Form();
-		form.set("loginUsername", "test2");
-		form.set("loginPassword", "new-Password27");
+		form.set("username", "test2");
+		form.set("password", "new-Password27");
 		resource.post(form);
 
 		assertEquals(200, resource.getStatus().getCode());
 		object = new JSONObject(resource.getResponseEntity().getText());
-		assertEquals("Login successfull.", object.getString("message"));
-		assertEquals(true, object.get("success"));
-		assertEquals(1, resource.getResponse().getCookieSettings().size());
 		resource.release();
 	}
 
+	@Test
 	public void testUpdateWithWrongCredentials() throws JSONException, IOException {
 
 		// login as user test1
-		LoginToken token = login("test1", "Test1Password");
+		LoginToken token = client.login("test1", "Test1Password");
 
 		// try to update password for test2
-		ClientResource resource = createClientResource("/api/v2/users/me/profile", token);
+		ClientResource resource = client.createClientResource("/api/v2/users/me/profile", token);
 		Form form = new Form();
 		form.set("username", "test2");
 		form.set("full-name", "test2 test1");
@@ -150,40 +170,13 @@ public class UserProfileTest extends JobsApiTestCase {
 		resource.release();
 	}
 
-	public void testUpdateWithMissingCSRFToken() throws JSONException, IOException {
-
-		// login as user test1
-		LoginToken token = login("test1", "Test1Password");
-
-		// try to update password with missing csrf token
-
-		token.setCsrfToken("");
-		ClientResource resource = createClientResource("/api/v2/users/me/profile", token);
-
-		Form form = new Form();
-		form.set("username", "test1");
-		form.set("full-name", "new full-name");
-		form.set("mail", "test1@test.com");
-		form.set("new-password", "new-Password27");
-		form.set("confirm-new-password", "new-Password27");
-
-		try {
-			resource.post(form);
-			assertFalse(true);
-		} catch (Exception e) {
-
-		}
-		assertNotSame(200, resource.getStatus().getCode());
-
-		resource.release();
-	}
-
+	@Test
 	public void testUpdateWithWrongConfirmPassword() throws JSONException, IOException {
 
 		// login as user test1
-		LoginToken token = login("test1", "Test1Password");
+		LoginToken token = client.login("test1", "Test1Password");
 
-		ClientResource resource = createClientResource("/api/v2/users/me/profile", token);
+		ClientResource resource = client.createClientResource("/api/v2/users/me/profile", token);
 		Form form = new Form();
 
 		// try to update with wrong password
@@ -201,12 +194,13 @@ public class UserProfileTest extends JobsApiTestCase {
 		resource.release();
 	}
 
+	@Test
 	public void testUpdatePasswordWithMissingLowercase() throws JSONException, IOException {
 
 		// login as user test1
-		LoginToken token = login("test1", "Test1Password");
+		LoginToken token = client.login("test1", "Test1Password");
 
-		ClientResource resource = createClientResource("/api/v2/users/me/profile", token);
+		ClientResource resource = client.createClientResource("/api/v2/users/me/profile", token);
 		Form form = new Form();
 		// try to update with wrong password
 		form.set("username", "test1");
@@ -224,12 +218,13 @@ public class UserProfileTest extends JobsApiTestCase {
 
 	}
 
+	@Test
 	public void testUpdatePasswordWithMissingNumber() throws JSONException, IOException {
 
 		// login as user test1
-		LoginToken token = login("test1", "Test1Password");
+		LoginToken token = client.login("test1", "Test1Password");
 
-		ClientResource resource = createClientResource("/api/v2/users/me/profile", token);
+		ClientResource resource = client.createClientResource("/api/v2/users/me/profile", token);
 		Form form = new Form();
 
 		// try to update with wrong password
@@ -247,12 +242,13 @@ public class UserProfileTest extends JobsApiTestCase {
 		resource.release();
 	}
 
+	@Test
 	public void testUpdatePasswordWithMissingUppercase() throws JSONException, IOException {
 
 		// login as user test1
-		LoginToken token = login("test1", "Test1Password");
+		LoginToken token = client.login("test1", "Test1Password");
 
-		ClientResource resource = createClientResource("/api/v2/users/me/profile", token);
+		ClientResource resource = client.createClientResource("/api/v2/users/me/profile", token);
 		Form form = new Form();
 
 		// try to update with wrong password

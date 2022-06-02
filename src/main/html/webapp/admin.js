@@ -32,61 +32,112 @@ var routes = [{
   control: DashboardControl,
   options: {
     login: false
-  }
+  },
+  guard: adminGuard
 }, {
   path: 'pages/admin-home',
   control: DashboardControl,
   options: {
     login: false
-  }
+  },
+  guard: adminGuard
 }, {
   path: 'pages/jobs',
-  control: JobListControl
+  control: JobListControl,
+  guard: adminGuard
 }, {
   path: 'pages/users',
   control: UserListControl,
   options: {
     page: 1
-  }
+  },
+  guard: adminGuard
 }, {
   path: 'pages/users/pages/{page}',
   control: UserListControl,
-},{
+  guard: adminGuard
+}, {
   path: 'pages/users/search/{query}',
   control: UserListControl,
+  guard: adminGuard
 }, {
   path: 'pages/admin-apps',
-  control: AppListControl
+  control: AppListControl,
+  guard: adminGuard
 }, {
   path: 'pages/admin-apps-repository',
-  control: AppRepositoryControl
+  control: AppRepositoryControl,
+  guard: adminGuard
 }, {
   path: 'pages/admin-server',
-  control: SettingsServerControl
+  control: SettingsServerControl,
+  guard: adminGuard
 }, {
   path: 'pages/admin-settings-general',
-  control: SettingsGeneralControl
+  control: SettingsGeneralControl,
+  guard: adminGuard
 }, {
   path: 'pages/admin-settings-mail',
-  control: SettingsMailControl
+  control: SettingsMailControl,
+  guard: adminGuard
 }, {
   path: 'pages/admin-settings-templates',
-  control: SettingsTemplatesControl
+  control: SettingsTemplatesControl,
+  guard: adminGuard
 }, {
   path: 'pages/admin-logs',
-  control: SettingsLogsControl
+  control: SettingsLogsControl,
+  guard: adminGuard
 }, {
   path: 'jobs/{job}',
   control: JobDetailControl,
+  guard: adminGuard
 }, {
   path: 'jobs/{job}/{tab}',
   control: JobDetailControl,
+  guard: adminGuard
 }];
+
+function adminGuard(appState) {
+  if (appState.attr('loggedIn')) {
+    return appState.attr('user').attr('admin');
+  } else {
+    return false;
+  }
+}
+
+$.ajaxPrefilter(function(options, orig, xhr) {
+  if (!options.beforeSend) {
+    options.beforeSend = function(xhr) {
+      if (localStorage.getItem("cloudgene")) {
+        try {
+          // get data
+          var data = JSON.parse(localStorage.getItem("cloudgene"));
+          xhr.setRequestHeader("X-CSRF-Token", data.csrf);
+          xhr.setRequestHeader("X-Auth-Token", data.token);
+        } catch (e) {
+          // do nothing
+        }
+      }
+    }
+  }
+  //canjs has an bug while sending data in json format: data is not in json format, so we need to fix it convert it manually to JSON
+  if (options.processData &&
+    /^application\/json((\+|;).+)?$/i.test(options.contentType) &&
+    /^(post|put|delete)$/i.test(options.type)
+  ) {
+    options.data = JSON.stringify(orig.data);
+    options.processData = false;
+  }
+
+});
 
 
 Server.findOne({}, function(server) {
 
-  new LayoutControl("#main", {});
+  new LayoutControl("#main", {
+    appState: server
+  });
 
 
   new RouterControl("#content", {
@@ -95,8 +146,8 @@ Server.findOne({}, function(server) {
     forbidden: {
       control: ErrorPage,
       options: {
-        status: '401',
-        message: 'Oops, you need to <a href="#!pages/login">login</a> to view this content.'
+        status: '403',
+        responseText: 'Oops, you are not allowed to view this content.'
       }
     }
   });

@@ -29,9 +29,13 @@ public class User {
 
 	private int loginAttempts;
 
+	private Date apiTokenExpiresOn = null;
+
 	public static final String ROLE_SEPARATOR = ",";
 
 	public static final String ROLE_ADMIN = "admin";
+
+	public static final String ROLE_USER = "user";
 
 	public void setUsername(String username) {
 		this.username = username;
@@ -147,6 +151,14 @@ public class User {
 
 	public int getLoginAttempts() {
 		return loginAttempts;
+	}
+
+	public void setApiTokenExpiresOn(Date apiTokenExpiresOn) {
+		this.apiTokenExpiresOn = apiTokenExpiresOn;
+	}
+
+	public Date getApiTokenExpiresOn() {
+		return apiTokenExpiresOn;
 	}
 
 	public static String checkUsername(String username) {
