@@ -168,3 +168,8 @@ stache.registerHelper('div', function(a, b, options) {
     return 0;
   }
 });
+
+stache.registerHelper('sum', function(a, b) {
+  // Sum two values, with default if either value is null-ish
+  return (a || 0 ) + (b || 0);
+});
