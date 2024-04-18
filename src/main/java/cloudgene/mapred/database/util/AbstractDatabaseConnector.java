@@ -4,7 +4,7 @@ import org.apache.commons.dbcp.BasicDataSource;
 
 public abstract class AbstractDatabaseConnector implements DatabaseConnector {
 
-	private int maxActive = 25;
+	private int maxActive = -1;
 
 	private int maxWait = 10000;
 
