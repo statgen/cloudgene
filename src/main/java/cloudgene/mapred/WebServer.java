@@ -5,6 +5,7 @@ import java.io.File;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.restlet.Component;
+import org.restlet.Server;
 import org.restlet.data.Protocol;
 import org.restlet.routing.VirtualHost;
 
@@ -39,11 +40,14 @@ public class WebServer extends Component {
 
 	@Override
 	public synchronized void start() throws Exception {
-
 		// ------------------
 		// Add the connectors
 		// ------------------
-		getServers().add(Protocol.HTTP, port);
+		Server server = getServers().add(Protocol.HTTP, port);
+		// In order to show client (not Load Balancer) IP in logs, must set:
+		// 	 https://github.com/restlet/restlet-framework-java/blob/0f7d8f9017f234a8c2527be6b8e755465c6dd397/modules/org.restlet/src/main/java/org/restlet/data/ClientInfo.java#L705
+		server.getContext().getParameters().add("useForwardedForHeader", "true");
+
 		getClients().add(Protocol.HTTP);
 		
 		if (useSSL) {
@@ -96,6 +100,8 @@ public class WebServer extends Component {
 		log.info("Start CronJobScheduler...");
 		scheduler = new CronJobScheduler(webapp);
 		scheduler.start();
+
+
 
 		super.start();
 	}
