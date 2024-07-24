@@ -101,8 +101,6 @@ public class WebServer extends Component {
 		scheduler = new CronJobScheduler(webapp);
 		scheduler.start();
 
-
-
 		super.start();
 	}
 
