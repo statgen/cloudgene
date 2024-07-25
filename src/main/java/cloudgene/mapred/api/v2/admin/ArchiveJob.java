@@ -83,6 +83,10 @@ public class ArchiveJob extends BaseResource {
 				job.setState(AbstractJob.STATE_RETIRED);
 				dao.update(job);
 
+				// When an admin manually deletes a job, clear sensitive data immediately
+				ParameterDao parameterDao = new ParameterDao(getDatabase());
+				parameterDao.deleteSensitiveByJob(job);
+
 				if (externalWorkspace != null) {
 					try {
 						externalWorkspace.delete(job.getId());

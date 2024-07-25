@@ -149,6 +149,10 @@ public class GetJobDetails extends BaseResource {
 		job.setState(AbstractJob.STATE_DELETED);
 		dao.update(job);
 
+		// When a user manually deletes a job, clear sensitive data immediately
+		ParameterDao parameterDao = new ParameterDao(getDatabase());
+		parameterDao.deleteSensitiveByJob(job);
+
 		Settings settings = getSettings();
 
 		IExternalWorkspace externalWorkspace = null;

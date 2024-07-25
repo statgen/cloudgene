@@ -58,6 +58,10 @@ public class CleanUpTasks {
 				log.info("Job " + job.getId() + " retired.");
 				deleted++;
 
+				// Clear sensitive data for all jobs that retire naturally due to age
+				ParameterDao parameterDao = new ParameterDao(database);
+				parameterDao.deleteSensitiveByJob(job);
+
 				if (externalWorkspace != null) {
 					try {
 						externalWorkspace.delete(job.getId());
